@@ -9,7 +9,7 @@
     
     <table th:object="${statuses}" id="tweets" border="1">
     <tr th:each="status :${statuses}">
-        <td  th:text="${status.getId()}"></td>
+        <td  th:text="${status.getUser().getScreenName()}"></td>
         <td  th:text="${status.getCreatedAt()}"></td>
         <td  th:text="${status.getText()}"></td>
     </tr>
