@@ -1,20 +1,27 @@
 package com.mx.hack.controller;
 
 import java.util.ArrayList;
+import java.util.Iterator;
 import java.util.List;
 
 import javax.servlet.ServletException;
 import javax.servlet.http.HttpServletRequest;
 
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.web.client.RestTemplateBuilder;
+import org.springframework.context.annotation.Bean;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.ModelAttribute;
 import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.client.RestTemplate;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 import org.springframework.web.servlet.view.RedirectView;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.mx.hack.data.TwitterUser;
 import com.mx.hack.service.TwitterUserService;
 
@@ -23,12 +30,16 @@ import twitter4j.Status;
 import twitter4j.Twitter;
 import twitter4j.TwitterException;
 import twitter4j.TwitterFactory;
+import twitter4j.TwitterObjectFactory;
 import twitter4j.auth.AccessToken;
 import twitter4j.auth.RequestToken;
 import twitter4j.conf.ConfigurationBuilder;
 
 @Controller
 public class InfiniteCtl {
+	
+	private static String Consumer_Key = "cn2EkdJuUDRVVB3azJTcJcSG5";
+	private static String Consumer_Secret = "DeLzW40jRvJR6CtQq5MOCI9DCrGGsbzVOuYY4ePqmbHJSEJvP0";
 	
 	@Autowired
 	TwitterUserService tus;
@@ -134,7 +145,7 @@ public class InfiniteCtl {
     }
     
     @GetMapping("/done")
-    public String done(@ModelAttribute("token_") String thetoken, @ModelAttribute("secret_") String thesecret, Model model) {
+    public String done(@ModelAttribute("token_") String thetoken, @ModelAttribute("secret_") String thesecret, Model model, RestTemplate restTemplate) {
     		System.out.println("token_:" + thetoken);
     		System.out.println("secret_:" + thesecret);
     	
@@ -142,30 +153,48 @@ public class InfiniteCtl {
     		
     		ConfigurationBuilder cb = getBuilder();
     		cb.setJSONStoreEnabled(true);
-    	    AccessToken accessToken = new AccessToken(thetoken, thesecret);
-    	    Twitter twitter = new TwitterFactory(cb.build()).getInstance(accessToken);
+    	    //AccessToken accessToken = new AccessToken(thetoken, thesecret);
+    	    //Twitter twitter = new TwitterFactory(cb.build()).getInstance(accessToken);
 
     	    //Paging paging = new Paging(10); // MAX 200 IN ONE CALL. SET YOUR OWN NUMBER <= 200
-    	    
-
     	    try {
     	    	
-    	    		statuses = twitter.getUserTimeline();
+	    	    String sandboxApp = "https://api.hsbc.qa.xlabs.one/twitter/1.1/statuses/home-timeline?include_entities=false&trim_user=false&count=10&exclude_replies=true&consumerKey=" +
+	    	    		InfiniteCtl.Consumer_Key + "&consumerSecret=" + InfiniteCtl.Consumer_Secret + "&accessToken="+ thetoken + "&tokenSecret=" + thesecret;
+	    	    
+			String responseSandbox = restTemplate.getForObject(
+					sandboxApp, String.class);
+			
+			System.out.println("sandboxApp:" + responseSandbox);
+			
+		    ObjectMapper mapper = new ObjectMapper();
+		    JsonNode currentNode = mapper.readTree(responseSandbox);
+		    
+		    if (currentNode.isArray()) {
+		        ArrayNode arrayNode = (ArrayNode) currentNode;
+		        Iterator<JsonNode> node = arrayNode.elements();
+		        
+		        while (node.hasNext()) {
+		        		//System.out.println(node.next().toString());
+		        		System.out.println("\n");
+		        		Status s = TwitterObjectFactory.createStatus(node.next().toString());
+		        		statuses.add(s);
+		        		System.out.println(s);
+		        }
+		    }
+		    
+		    //System.out.println(actualObj);
+		    
+		    //Status s = TwitterObjectFactory.createStatus(actualObj.)
+    	    
+    	    
+    	    	
+    	    		//statuses = twitter.getUserTimeline();
     	    		
-    	    		for(Status s: statuses) {
+    	    		/*for(Status s: statuses) {
     	    			System.out.println(s);
     	    			System.out.println();
-    	    		}
-    	    		
-    	        //String strInitialDataSet = DataObjectFactory.getRawJSON(statuses);
-    	        //System.out.println(strInitialDataSet);
-    	        /*JSONArray JATweets = new JSONArray(strInitialDataSet);
-
-    	        for (int i = 0; i < JATweets.length(); i++) {
-    	                JSONObject jt = JATweets.getJSONObject(i);
-    	                System.out.println(jt);
-    	                //Log.e("TWEETS", JOTweets.toString());
-    	        }*/
+    	    		}*/
 
     	    } catch (Exception e) {
     	    		e.printStackTrace();
@@ -178,9 +207,18 @@ public class InfiniteCtl {
     private ConfigurationBuilder getBuilder() {
     	ConfigurationBuilder cb = new ConfigurationBuilder();
 	    	cb.setDebugEnabled(true)
-	    	  .setOAuthConsumerKey("cn2EkdJuUDRVVB3azJTcJcSG5")
-	    	  .setOAuthConsumerSecret("DeLzW40jRvJR6CtQq5MOCI9DCrGGsbzVOuYY4ePqmbHJSEJvP0");
+	    	  .setOAuthConsumerKey(InfiniteCtl.Consumer_Key)
+	    	  .setOAuthConsumerSecret(InfiniteCtl.Consumer_Secret);
 	    	
 	    	return cb;
     }
+    
+    @Bean
+	public RestTemplate restTemplate(RestTemplateBuilder builder) {
+		return builder.build();
+	}
+    
+    
+    
+    
 }
